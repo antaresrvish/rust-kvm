@@ -17,13 +17,18 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
             }
             Ok(_) => {
                 let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+
                 let mut parts = line.split_whitespace();
-                let cmd = parts.next();
+                let raw_cmd = parts.next();
 
                 let mut response = String::new();
+                let command = raw_cmd.map(|c| c.to_uppercase()).unwrap_or_default();
 
-                match cmd {
-                    Some("GET") => {
+                match command.as_str() {
+                    "GET" => {
                         if let Some(key) = parts.next() {
                             if let Some(value) = db.get(key) {
                                 response = value;
@@ -34,7 +39,7 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
                             response = "Error: GET command requires a key".to_string();
                         }
                     }
-                    Some("SET") => {
+                    "SET" => {
                         let key = parts.next();
                         let value = parts.next();
                         if let (Some(key), Some(value)) = (key, value) {
@@ -44,7 +49,7 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
                             response = "Error: SET command requires a key and a value".to_string();
                         }
                     }
-                    Some("DEL") => {
+                    "DEL" => {
                         if let Some(key) = parts.next() {
                             let deleted = db.delete(key);
                             response = if deleted {
@@ -56,22 +61,30 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
                             response = "Error: DEL command requires a key".to_string();
                         }
                     }
-                    Some("KEYS") => {
+                    "KEYS" => {
                         let keys = db.keys();
                         response = format!("{:?}", keys);
                     }
-                    Some("EXIT") => {
+                    "EXIT" => {
                         response = "Bye!".to_string();
                         let _ = stream.write_all(response.as_bytes());
                         let _ = stream.write_all(b"\n");
                         println!("Connection closed by client: {}", peer_addr);
                         break;
                     }
-                    Some(unknown) => {
-                        response = format!("Error: Unknown command '{}'", unknown);
+                    "HELP" => {
+                        response = "Available commands:\n\
+                                        GET <key>         - Retrieve the value of <key>\n\
+                                        SET <key> <value> - Set or update the <key> with <value>\n\
+                                        DEL <key>         - Delete the given <key>\n\
+                                        KEYS              - List all keys\n\
+                                        HELP              - Show this help message\n\
+                                        EXIT              - Close the connection"
+                                .to_string();
+
                     }
-                    None => {
-                        continue;
+                    _ => {
+                        response = format!("Error: Unknown command '{}'", line);
                     }
                 }
 
