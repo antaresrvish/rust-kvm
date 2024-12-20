@@ -21,7 +21,7 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
                     continue;
                 }
 
-                let mut parts = line.split_whitespace();
+                let mut parts = line.splitn(3, ' '); 
                 let raw_cmd = parts.next();
 
                 let mut response = String::new();
@@ -41,7 +41,7 @@ pub fn handle_client(mut stream: TcpStream, db: DB) {
                     }
                     "SET" => {
                         let key = parts.next();
-                        let value = parts.next();
+                        let value = parts.next(); 
                         if let (Some(key), Some(value)) = (key, value) {
                             db.set(key.to_string(), value.to_string());
                             response = "OK".to_string();
